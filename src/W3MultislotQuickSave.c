@@ -1,4 +1,5 @@
-// W3MultislotQuickSave.mix - rotating quick saves and a quick load key for Warcraft III 1.26a (Game.dll build 6401)
+// W3MultislotQuickSave.mix - rotating quick saves and a quick load key for Warcraft III 1.26a and 1.27b
+// (Game.dll builds 6401 and 7085)
 // Build: i686-w64-mingw32-gcc -O2 -Wall -shared -static-libgcc -s -o W3MultislotQuickSave.mix W3MultislotQuickSave.c -lversion
 //
 // The game's own quick save (F6) always writes the same file. Here it writes QuickSave_1 .. QuickSave_N in turn,
@@ -16,17 +17,35 @@ static FILE* g_log;
 static int g_slots = 10, g_saveKey = VK_F6, g_loadKey = VK_F8, g_debug;
 static HHOOK g_hook;
 
-// Game.dll 6401
-#define RVA_QuickSaveCall 0x2FDF7D      // F6 handler: call QuickSave (0x338140)
-#define RVA_QuickSave     0x338140
-#define RVA_SaveGameFile  0x43FAD0      // fastcall(name): save the running game as name (relative, ".w3z")
-#define RVA_GameObj       0xAB65F4      // the running game
-#define RVA_CheckA        0x53E670      // checks the unused quick load does before loading
-#define RVA_CheckB        0x53F160
-#define RVA_BaseDir       0x6C6000      // fastcall(buf, size): the game's folder
-#define RVA_SavePath      0x5BCB10      // fastcall(name, out, size): name -> path of the save, relative to it
-#define RVA_FileExists    0x6D7DE0      // fastcall(path)
-#define RVA_LoadSave      0x3A4C70      // thiscall(game, path, 0, 0): load a saved game
+// addresses (RVAs) per Game.dll build
+typedef struct {
+    u32 build;
+    u32 quickSaveCall;   // F6 handler: call QuickSave
+    u32 quickSave;
+    u32 saveGameFile;    // fastcall(name): save the running game as name (relative, ".w3z")
+    u32 gameObj;         // the running game
+    u32 checkA, checkB;  // checks the unused quick load does before loading
+    u32 baseDir;         // fastcall(buf, size): the game's folder
+    u32 savePath;        // fastcall(name, out, size): name -> path of the save, relative to it
+    u32 fileExists;      // fastcall(path)
+    u32 loadSave;        // thiscall(game, path, a, b): load a saved game
+    int nativeLoad;      // load as the game's LoadGame does: relative path, (path, 0, 1); else as its quick load
+} Addrs;
+static const Addrs kAddrs[] = {
+    { 6401, 0x2FDF7D, 0x338140, 0x43FAD0, 0xAB65F4, 0x53E670, 0x53F160, 0x6C6000, 0x5BCB10, 0x6D7DE0, 0x3A4C70, 0 },  // 1.26a
+    { 7085, 0x36FCEE, 0x3C5A70, 0x270520, 0xD687A8, 0x32C080, 0x32C110, 0x091C20, 0x2BFC90, 0x093AD0, 0x1E7630, 1 },  // 1.27b
+};
+static const Addrs* A;
+#define RVA_QuickSaveCall (A->quickSaveCall)
+#define RVA_QuickSave     (A->quickSave)
+#define RVA_SaveGameFile  (A->saveGameFile)
+#define RVA_GameObj       (A->gameObj)
+#define RVA_CheckA        (A->checkA)
+#define RVA_CheckB        (A->checkB)
+#define RVA_BaseDir       (A->baseDir)
+#define RVA_SavePath      (A->savePath)
+#define RVA_FileExists    (A->fileExists)
+#define RVA_LoadSave      (A->loadSave)
 
 static void logf_(const char* f, ...)
 {
@@ -113,8 +132,15 @@ static void QuickLoad(void)
     if (n) SlotName(n, name, sizeof name); else snprintf(name, sizeof name, "QuickSave.w3z");   // the game's own one
     FullPath(name, path, sizeof path);
     if (!FN(FileExists_t, RVA_FileExists)(path)) { logf_("quick load: no %s", path); return; }
-    logf_("quick load <- %s", path);
-    FN(LoadSave_t, RVA_LoadSave)(game, NULL, path, 0, 0);
+    if (A->nativeLoad) {
+        char rel[MAX_PATH] = "";
+        FN(SavePath_t, RVA_SavePath)(name, rel, MAX_PATH);
+        logf_("quick load <- %s", rel);
+        FN(LoadSave_t, RVA_LoadSave)(game, NULL, rel, 0, 1);
+    } else {
+        logf_("quick load <- %s", path);
+        FN(LoadSave_t, RVA_LoadSave)(game, NULL, path, 0, 0);
+    }
 }
 
 // keys arrive as window messages on the game's thread
@@ -162,8 +188,9 @@ static void Install(HINSTANCE self)
 
     g_base = (u32)GetModuleHandleA("Game.dll");
     u32 build = GetGameBuild();
-    logf_("W3MultislotQuickSave 1.0  Game.dll build %u, %d slots, save key %02X, load key %02X", build, g_slots, g_saveKey, g_loadKey);
-    if (!g_base || build != 6401) { logf_("unsupported game version, doing nothing (need 1.26a / 6401)"); return; }
+    logf_("W3MultislotQuickSave 1.1  Game.dll build %u, %d slots, save key %02X, load key %02X", build, g_slots, g_saveKey, g_loadKey);
+    for (size_t i = 0; i < sizeof kAddrs / sizeof kAddrs[0]; i++) if (kAddrs[i].build == build) A = &kAddrs[i];
+    if (!g_base || !A) { logf_("unsupported game version, doing nothing (need 1.26a / 6401 or 1.27b / 7085)"); return; }
 
     uint8_t* c = (uint8_t*)(g_base + RVA_QuickSaveCall);
     if (c[0] != 0xE8 || g_base + RVA_QuickSaveCall + 5 + *(int32_t*)(c + 1) != g_base + RVA_QuickSave) { logf_("quick save call not found"); return; }
@@ -176,7 +203,13 @@ static void Install(HINSTANCE self)
 BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID r)
 {
     (void)r;
-    if (reason == DLL_PROCESS_ATTACH) { DisableThreadLibraryCalls(h); Install(h); }
+    if (reason == DLL_PROCESS_ATTACH) {
+        DisableThreadLibraryCalls(h);
+        // the Miles sound library loads the .mix files and unloads / reloads them when the sound provider changes
+        // (e.g. EAX switched on); the patches in Game.dll point into this module, so it must stay loaded
+        { HMODULE self; GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN, (LPCSTR)DllMain, &self); }
+        Install(h);
+    }
     if (reason == DLL_PROCESS_DETACH && g_hook) UnhookWindowsHookEx(g_hook);
     return TRUE;
 }
