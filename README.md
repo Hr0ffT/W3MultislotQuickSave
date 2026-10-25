@@ -2,8 +2,6 @@
 
 Rotating quick saves and a quick load key for **Warcraft III 1.26a, 1.27b and 1.28.5**.
 
-[Русская версия](README.ru.md)
-
 The game's quick save (F6) always overwrites the same file, and there is no quick load at all. With this mod:
 
 - **F6** saves to `QuickSave_1`, `QuickSave_2`, ... `QuickSave_10` in turn, then starts over at 1, so the last ten quick saves are kept.
