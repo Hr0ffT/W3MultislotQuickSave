@@ -1,5 +1,5 @@
-// W3MultislotQuickSave.mix - rotating quick saves and a quick load key for Warcraft III 1.26a and 1.27b
-// (Game.dll builds 6401 and 7085)
+// W3MultislotQuickSave.mix - rotating quick saves and a quick load key for Warcraft III 1.26a, 1.27b and 1.28.5
+// (Game.dll builds 6401, 7085 and 7680)
 // Build: i686-w64-mingw32-gcc -O2 -Wall -shared -static-libgcc -s -o W3MultislotQuickSave.mix W3MultislotQuickSave.c -lversion
 //
 // The game's own quick save (F6) always writes the same file. Here it writes QuickSave_1 .. QuickSave_N in turn,
@@ -34,6 +34,7 @@ typedef struct {
 static const Addrs kAddrs[] = {
     { 6401, 0x2FDF7D, 0x338140, 0x43FAD0, 0xAB65F4, 0x53E670, 0x53F160, 0x6C6000, 0x5BCB10, 0x6D7DE0, 0x3A4C70, 0 },  // 1.26a
     { 7085, 0x36FCEE, 0x3C5A70, 0x270520, 0xD687A8, 0x32C080, 0x32C110, 0x091C20, 0x2BFC90, 0x093AD0, 0x1E7630, 1 },  // 1.27b
+    { 7680, 0x3A3DAE, 0x3F9B80, 0x2A29F0, 0xD305E0, 0x35FD40, 0x35FDD0, 0x0BB6B0, 0x2F2490, 0x0BD970, 0x219F90, 1 },  // 1.28.5
 };
 static const Addrs* A;
 #define RVA_QuickSaveCall (A->quickSaveCall)
@@ -188,9 +189,9 @@ static void Install(HINSTANCE self)
 
     g_base = (u32)GetModuleHandleA("Game.dll");
     u32 build = GetGameBuild();
-    logf_("W3MultislotQuickSave 1.1  Game.dll build %u, %d slots, save key %02X, load key %02X", build, g_slots, g_saveKey, g_loadKey);
+    logf_("W3MultislotQuickSave 1.2  Game.dll build %u, %d slots, save key %02X, load key %02X", build, g_slots, g_saveKey, g_loadKey);
     for (size_t i = 0; i < sizeof kAddrs / sizeof kAddrs[0]; i++) if (kAddrs[i].build == build) A = &kAddrs[i];
-    if (!g_base || !A) { logf_("unsupported game version, doing nothing (need 1.26a / 6401 or 1.27b / 7085)"); return; }
+    if (!g_base || !A) { logf_("unsupported game version, doing nothing (need 1.26a / 6401, 1.27b / 7085 or 1.28.5 / 7680)"); return; }
 
     uint8_t* c = (uint8_t*)(g_base + RVA_QuickSaveCall);
     if (c[0] != 0xE8 || g_base + RVA_QuickSaveCall + 5 + *(int32_t*)(c + 1) != g_base + RVA_QuickSave) { logf_("quick save call not found"); return; }

@@ -1,6 +1,6 @@
 # W3MultislotQuickSave
 
-Rotating quick saves and a quick load key for **Warcraft III 1.26a and 1.27b**.
+Rotating quick saves and a quick load key for **Warcraft III 1.26a, 1.27b and 1.28.5**.
 
 [Русская версия](README.ru.md)
 
@@ -14,7 +14,7 @@ Both go through the game's own code: the quick save is the game's own (with its 
 
 ## Requirements
 
-- Warcraft III 1.26a (Game.dll 1.26.0.6401) or 1.27b (Game.dll 1.27.1.7085). The mod checks the version and does nothing on any other patch.
+- Warcraft III 1.26a (Game.dll 1.26.0.6401), 1.27b (Game.dll 1.27.1.7085) or 1.28.5 (Game.dll 1.28.5.7680). The mod checks the version and does nothing on any other patch.
 
 ## Installation
 
@@ -45,6 +45,7 @@ Keys: `F1`..`F12`, a letter or a digit, or a virtual-key code like `0x75`.
 
 ## Changelog
 
+- **1.2** — Works on 1.28.5 too.
 - **1.1** — Works on 1.27b too. Fixed a crash when the sound provider is changed in the game's options (e.g. EAX switched on).
 - **1.0** — First release.
 
